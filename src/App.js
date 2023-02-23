@@ -1,97 +1,69 @@
 import React, { useState, useEffect } from 'react';
 import axios from "axios";
-import { DataGrid } from '@material-ui/data-grid';
-import { TablePagination } from '@mui/material/TablePagination';
-import Paper from "@material-ui/core/Paper";
-import SearchBar from "material-ui-search-bar";
+import { DataGrid, GridToolbar } from '@material-ui/data-grid';
 
+
+//Columns to be displayed in the data table
 const columns = [
   { field: 'name', headerName: 'Member Name', width: 250 },
   { field: 'type', headerName: 'Type of Absence', width: 200 },
   { field: 'startDate', headerName: 'Start Date', width: 200 },
   { field: 'endDate', headerName: 'End Date', width: 200 },
+  { field: 'status', headerName: 'Status', width: 200 },
   { field: 'memberNote', headerName: 'Member Note', width: 400 },
-  { field: 'confirmedAt', headerName: 'Status', width: 200 },
   { field: 'admitterNote', headerName: 'Admitter Note', width: 400 },
 ];
 
+//logic to display status
+const generateStatus = (confirmedAt, rejectedAt) => {
+  let status = "Requested";
+  if (confirmedAt) {
+    status = "Confirmed";
+  } else if (rejectedAt) {
+    status = "Rejected";
+  }
+  return status.toUpperCase()
+};
 
+//function to build the data table
 export default function DynamicTable() {
- const [loading, setLoading] = useState(true);
+
  const [data, setData] = useState([]);
- const [member, setMember] = useState([]);
- const [rows, setRows] = useState(data);
- const [searched, setSearched] = useState("");
+ const [loading, setLoading] = useState(true);
 
+ //load the data from json files and map the required fields.
+ useEffect(() => {
 
-
- const currentRecords = data;
- const requestSearch = (searchedVal) => {
-
-    axios.get('absences.json')
-        .then(res => {
-        axios.get('members.json')
-            .then(res1 => {
-                try {
-                      res.data.payload.map(absence => {
-                        const member = res1.data.payload.find(member => member.userId === absence.userId);
-                        absence.name = member.name;
-                      });
-                      console.log("MAIN: "+res.data.payload);
-                       setData(res.data.payload);
-                       if (res.data.payload !== null ) {
-                          const filteredRows = data.filter((row) => row.type.includes(searchedVal));
-                           var arr = [];
-                           Object.keys(filteredRows).forEach(function(key) {
-                                arr.push(filteredRows[key]);
-                           });
-                           console.log("FILTER: "+arr);
-                           setData(filteredRows);
-                       }
-                    } catch(err) {
-                      alert('There was an error while constructing the absences data'+err);
-                    }
-            })
-            .catch(() => {
-                alert('There was an error while fetching the members data');
-            })
-    })
-    .catch(() => {
-        alert('There was an error while fetching the absences data');
-    })
-
- };
-
- const cancelSearch = () => {
-    setSearched("");
-    requestSearch(searched);
- };
-
-useEffect(() => {
     axios.get('absences.json')
         .then(res => {
         setLoading(true);
         axios.get('members.json')
             .then(res1 => {
-                setLoading(false);
                 try {
-                      res.data.payload.map(absence => {
+                        //deriving the Member Name for each row based on the userId
+                        res.data.payload.map(absence => {
                         const member = res1.data.payload.find(member => member.userId === absence.userId);
                         absence.name = member.name;
+                        //assigning the status using the function generateStatus based on confirmedAt and rejectedAt dates.
+                        absence.status = generateStatus(absence.confirmedAt, absence.rejectedAt);
                       });
+                      //set the data into data variable.
                       setData(res.data.payload);
+                      setLoading(false);
                     } catch(err) {
-                      alert('There was an error while constructing the absences data'+err);
+                      alert('Exception while constructing the data, due to '+err);
                     }
             })
-            .catch(() => {
-                alert('There was an error while fetching the members data');
+            .catch((err) => {
+                alert('Exception while fetching the members data, due to '+err);
             })
     })
-    .catch(() => {
-        alert('There was an error while fetching the absences data');
+    .catch((err) => {
+        alert('Exception while fetching the absences data, due to '+err);
     })
  }, [])
+
+ //return the html for rendering datatable
  return (
     <center>
         <br/>
@@ -100,14 +72,13 @@ useEffect(() => {
         Absence Manager
         <hr width="100%" color="black" />
        </h3>
-       <SearchBar
-            value={searched}
-            onChange={(searchVal) => requestSearch(searchVal)}
-            onCancelSearch={() => cancelSearch()}
-          />
        <DataGrid rows={data}
+                 loading={loading}
                  columns={columns}
                  pageSize={10}
+                 components={{
+                   Toolbar: GridToolbar,
+                 }}
        />
      </div>
      </center>
